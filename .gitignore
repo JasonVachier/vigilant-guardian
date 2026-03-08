@@ -1,0 +1,16 @@
+# Environnement virtuel
+.venv/
+
+# Fichiers Python compilés
+__pycache__/
+*.pyc
+
+# Base de données locale
+data/*.db
+
+# Variables d'environnement
+.env
+
+# Fichiers système / éditeur
+.vscode/
+.DS_Store
