@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}{{ vuln['cve_id'] }} — Vigilant Guardian{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Tableau de bord</a></li>
+        <li class="breadcrumb-item active">{{ vuln['cve_id'] }}</li>
+    </ol>
+</nav>
+
+<!-- En-tête CVE -->
+<div class="vg-detail-header mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h1 class="mb-1">
+                {{ vuln['cve_id'] }}
+                {% if vuln['kev'] %}
+                <span class="badge bg-warning text-dark ms-2 fs-6">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Exploitation active (KEV)
+                </span>
+                {% endif %}
+            </h1>
+            <div class="text-muted">
+                <span class="me-3"><i class="bi bi-calendar3 me-1"></i>{{ safe_value(vuln['published_date'], "Date inconnue") }}</span>
+                <span class="me-3"><i class="bi bi-building me-1"></i>{{ safe_value(vuln['vendor'], "Vendor inconnu") }}</span>
+                <span><i class="bi bi-box me-1"></i>{{ safe_value(vuln['product'], "Produit inconnu") }}</span>
+            </div>
+        </div>
+        <div class="col-auto text-end">
+            <div class="vg-score-big {% if vuln['cvss_score'] and vuln['cvss_score'] >= 9.0 %}score-critical{% elif vuln['cvss_score'] and vuln['cvss_score'] >= 7.0 %}score-high{% elif vuln['cvss_score'] and vuln['cvss_score'] >= 4.0 %}score-medium{% elif vuln['cvss_score'] %}score-low{% endif %}">
+                {{ format_score(vuln['cvss_score']) }}
+            </div>
+            <span class="badge {{ severity_badge_class(vuln['severity']) }} fs-6 mt-1">
+                {{ safe_value(vuln['severity'], "Unknown") }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Colonne principale -->
+    <div class="col-lg-8">
+        <!-- Description brute -->
+        <div class="vg-card mb-4">
+            <div class="vg-card-header">
+                <i class="bi bi-file-text me-2"></i>Description de la vulnérabilité
+            </div>
+            <div class="vg-card-body">
+                <p class="mb-0">{{ safe_value(vuln['description_raw'], "Aucune description disponible.") }}</p>
+            </div>
+        </div>
+
+        <!-- Analyse IA -->
+        {% if vuln['llm_analyzed'] %}
+        <div class="vg-card vg-card-ai mb-4">
+            <div class="vg-card-header">
+                <i class="bi bi-robot me-2"></i>Analyse défensive (IA)
+            </div>
+            <div class="vg-card-body">
+                <div class="vg-ai-section mb-4">
+                    <h6 class="vg-ai-label">
+                        <i class="bi bi-chat-left-text me-1"></i> Résumé
+                    </h6>
+                    <p>{{ safe_value(vuln['llm_summary'], "Résumé non disponible.") }}</p>
+                </div>
+                <div class="vg-ai-section mb-4">
+                    <h6 class="vg-ai-label text-danger">
+                        <i class="bi bi-lightning-fill me-1"></i> Impact potentiel
+                    </h6>
+                    <p>{{ safe_value(vuln['llm_impact'], "Impact non évalué.") }}</p>
+                </div>
+                <div class="vg-ai-section">
+                    <h6 class="vg-ai-label text-success">
+                        <i class="bi bi-shield-check me-1"></i> Recommandations de mitigation
+                    </h6>
+                    <p class="mb-0">{{ safe_value(vuln['llm_mitigation'], "Recommandations non disponibles.") }}</p>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="vg-card mb-4">
+            <div class="vg-card-header">
+                <i class="bi bi-robot me-2"></i>Analyse défensive (IA)
+            </div>
+            <div class="vg-card-body text-center py-5">
+                <i class="bi bi-hourglass-split display-4 text-muted d-block mb-3"></i>
+                <p class="text-muted mb-0">L'analyse IA n'a pas encore été réalisée pour cette vulnérabilité.</p>
+                <small class="text-muted">Le module d'analyse LLM (Personne 2) doit être exécuté.</small>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Colonne latérale -->
+    <div class="col-lg-4">
+        <!-- Métadonnées -->
+        <div class="vg-card mb-4">
+            <div class="vg-card-header">
+                <i class="bi bi-info-circle me-2"></i>Métadonnées
+            </div>
+            <div class="vg-card-body">
+                <table class="table table-sm table-borderless mb-0 vg-meta-table">
+                    <tr>
+                        <td class="text-muted">Identifiant</td>
+                        <td class="fw-semibold">{{ vuln['cve_id'] }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Publication</td>
+                        <td>{{ safe_value(vuln['published_date'], "Inconnue") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Score CVSS</td>
+                        <td>{{ format_score(vuln['cvss_score']) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Sévérité</td>
+                        <td>
+                            <span class="badge {{ severity_badge_class(vuln['severity']) }}">
+                                {{ safe_value(vuln['severity'], "Unknown") }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Exploitation KEV</td>
+                        <td>
+                            {% if vuln['kev'] %}
+                                <span class="text-warning"><i class="bi bi-exclamation-triangle-fill"></i> Oui</span>
+                            {% else %}
+                                Non répertoriée
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Vendor</td>
+                        <td>{{ safe_value(vuln['vendor'], "Inconnu") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Produit</td>
+                        <td>{{ safe_value(vuln['product'], "Inconnu") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Source(s)</td>
+                        <td>{{ safe_value(vuln['source'], "—") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Analyse IA</td>
+                        <td>
+                            {% if vuln['llm_analyzed'] %}
+                                <span class="text-success"><i class="bi bi-check-circle-fill"></i> Complétée</span>
+                            {% else %}
+                                <span class="text-secondary"><i class="bi bi-hourglass-split"></i> En attente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Références -->
+        <div class="vg-card mb-4">
+            <div class="vg-card-header">
+                <i class="bi bi-link-45deg me-2"></i>Références
+            </div>
+            <div class="vg-card-body">
+                {% set refs = parse_references(vuln['references_json']) %}
+                {% if refs %}
+                    {% for ref in refs %}
+                    <div class="mb-2">
+                        <a href="{{ ref.url }}" target="_blank" rel="noopener noreferrer"
+                           class="vg-ref-link text-break">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>
+                            {{ ref.url | truncate(60) }}
+                        </a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">Aucune référence disponible.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Navigation rapide -->
+        <div class="d-grid gap-2">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-light">
+                <i class="bi bi-arrow-left me-1"></i> Retour au tableau
+            </a>
+            {% if vuln['kev'] %}
+            <a href="{{ url_for('index', kev='1') }}" class="btn btn-outline-warning">
+                <i class="bi bi-exclamation-triangle me-1"></i> Voir toutes les KEV
+            </a>
+            {% endif %}
+            {% if vuln['severity'] and vuln['severity'] != 'Unknown' %}
+            <a href="{{ url_for('index', severity=vuln['severity']) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-funnel me-1"></i> Filtrer par {{ vuln['severity'] }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

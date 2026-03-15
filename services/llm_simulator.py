@@ -1,62 +1,77 @@
 """
-Simulateur d'analyse LLM.
+llm_simulator.py — Simulation de sortie LLM (Personne 1)
 
-Ce module ne fait pas appel à une vraie intelligence artificielle.
-Il génère simplement des textes automatiques à partir des données
-déjà présentes dans la base.
-
-Objectif :
-- tester l'intégration du futur module LLM
-- vérifier que les champs llm_* sont bien sauvegardés
-- permettre au front-end d'afficher des résultats
+Génère des analyses réalistes sans appeler un vrai LLM.
+Utile pour tester la chaîne complète et pour la démonstration.
 """
 
-def generate_fake_llm_analysis(vulnerability) -> dict:
+
+def generate_fake_llm_analysis(vuln) -> dict:
     """
-    Génère une fausse analyse pour une vulnérabilité.
+    Génère une fausse analyse LLM à partir des données d'une vulnérabilité.
+    Retourne un dict avec summary, impact, mitigation, priority.
 
-    Parameters
-    ----------
-    vulnerability : sqlite3.Row ou dict-like
-        Vulnérabilité lue depuis la base
-
-    Returns
-    -------
-    dict
-        Dictionnaire contenant summary, impact et mitigation
+    Note : vuln peut être un dict OU un sqlite3.Row, on utilise donc
+    l'accès par clé [] avec des valeurs par défaut via une conversion.
     """
+    # Convertir sqlite3.Row en dict si nécessaire
+    if not isinstance(vuln, dict):
+        vuln = dict(vuln)
 
-    cve_id = vulnerability["cve_id"]
-    severity = vulnerability["severity"] or "Unknown"
-    vendor = vulnerability["vendor"] or "éditeur non précisé"
-    product = vulnerability["product"] or "produit non précisé"
-    description = vulnerability["description_raw"] or "Description non précisée"
-    kev = "oui" if vulnerability["kev"] else "non"
+    cve_id = vuln.get("cve_id", "CVE-XXXX-XXXX")
+    severity = vuln.get("severity") or "Unknown"
+    vendor = vuln.get("vendor") or "non précisé"
+    product = vuln.get("product") or "non précisé"
+    kev = vuln.get("kev", 0)
+    cvss = vuln.get("cvss_score")
+    description = vuln.get("description_raw") or "non précisé"
+
+    # Résumé basé sur les données existantes
+    kev_text = " Cette vulnérabilité est activement exploitée (CISA KEV)." if kev else ""
+    score_text = f" Score CVSS : {cvss}/10." if cvss else ""
 
     summary = (
-        f"La vulnérabilité {cve_id} affecte {product} chez {vendor}. "
-        f"Le niveau de sévérité actuellement enregistré est {severity}. "
-        f"Elle est marquée comme activement exploitée : {kev}. "
-        f"Résumé technique disponible : {description}"
+        f"Vulnérabilité {severity} affectant {vendor} {product}. "
+        f"{description[:150]}...{score_text}{kev_text}"
     )
 
-    impact = (
-        f"Cette vulnérabilité peut représenter un risque important pour les systèmes "
-        f"utilisant {product}. Une exploitation réussie pourrait compromettre la "
-        f"confidentialité, l'intégrité ou la disponibilité du système selon le contexte. "
-        f"Le niveau de priorité de traitement doit être ajusté selon la sévérité "
-        f"et le statut KEV."
+    # Impact adapté à la sévérité
+    impact_map = {
+        "CRITICAL": f"Impact très élevé. Compromission potentielle complète des systèmes {product} de {vendor}. "
+                    "Risque d'exécution de code à distance, vol de données ou déni de service majeur.",
+        "HIGH": f"Impact élevé. Les systèmes {product} de {vendor} sont exposés à des attaques significatives. "
+                "Exploitation possible pour élévation de privilèges ou accès non autorisé.",
+        "MEDIUM": f"Impact modéré. Les systèmes {product} de {vendor} présentent un risque limité. "
+                  "Exploitation nécessitant des conditions spécifiques.",
+        "LOW": f"Impact faible. Risque limité pour les systèmes {product} de {vendor}.",
+    }
+    impact = impact_map.get(severity.upper(),
+        f"Impact non évalué précisément pour {vendor} {product}. Sévérité : {severity}."
     )
 
+    # Mitigation
     mitigation = (
-        f"Il est recommandé de surveiller les correctifs liés à {cve_id}, "
-        f"d'appliquer les mises à jour de sécurité disponibles, de limiter l'exposition "
-        f"des services concernés, de renforcer la supervision, et de prioriser cette "
-        f"vulnérabilité si elle touche un système critique."
+        f"Vérifier la disponibilité d'un correctif auprès de {vendor}. "
+        f"Appliquer les mises à jour de sécurité pour {product} dès que possible. "
     )
+    if kev:
+        mitigation += "URGENT : vulnérabilité activement exploitée — prioriser le déploiement du correctif. "
+    if cvss and cvss >= 9.0:
+        mitigation += "Isoler les systèmes vulnérables du réseau si le correctif n'est pas immédiatement applicable."
+
+    # Priorité
+    if kev or (cvss and cvss >= 9.0):
+        priority = "Haute"
+    elif cvss and cvss >= 7.0:
+        priority = "Haute"
+    elif cvss and cvss >= 4.0:
+        priority = "Moyenne"
+    else:
+        priority = "Basse"
 
     return {
         "summary": summary,
         "impact": impact,
-        "mitigation": mitigation
+        "mitigation": mitigation,
+        "priority": priority,
     }

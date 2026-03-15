@@ -54,3 +54,12 @@ HTTP_TIMEOUT = 30
 
 # Nombre d'éléments affichés par page dans l'interface
 DEFAULT_RESULTS_PER_PAGE = 20
+
+
+# ---------------------------------------------------
+# Flask 
+# ---------------------------------------------------
+SECRET_KEY = "vigilant-guardian-dev-key-2024"
+DEBUG = True
+HOST = "0.0.0.0"
+PORT = 5000

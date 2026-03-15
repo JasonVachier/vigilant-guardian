@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}404 — Vigilant Guardian{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+    <i class="bi bi-shield-x display-1 text-danger d-block mb-3"></i>
+    <h2>Vulnérabilité introuvable</h2>
+    <p class="text-muted">L'identifiant CVE demandé n'existe pas dans la base de données.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-light mt-3">
+        <i class="bi bi-arrow-left me-1"></i> Retour au tableau de bord
+    </a>
+</div>
+{% endblock %}

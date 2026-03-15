@@ -1,16 +1,16 @@
 """
-Module d'analyse LLM des vulnérabilités.
+Module d'analyse LLM des vulnérabilités (Personne 2).
 
 Responsabilités :
 - récupérer les vulnérabilités non analysées
 - construire un prompt structuré
-- appeler un modèle LLM
+- appeler un modèle LLM (ou le simulateur)
 - parser la réponse JSON
 - sauvegarder l'analyse via repository.save_llm_analysis
 
 Ce module peut fonctionner :
-1) avec un vrai LLM (OpenAI)
-2) avec le simulateur interne pour les tests
+1) avec un vrai LLM (OpenAI) si USE_REAL_LLM = True
+2) avec le simulateur interne pour les tests (par défaut)
 """
 
 import json
@@ -19,22 +19,20 @@ import logging
 
 from services.repository import (
     get_unanalyzed_vulnerabilities,
-    save_llm_analysis
+    save_llm_analysis,
 )
-
-# simulateur pour tests
 from services.llm_simulator import generate_fake_llm_analysis
-
 
 # ---------------------------------------------------
 # Configuration
 # ---------------------------------------------------
 
-USE_REAL_LLM = False  # passer à True quand API prête
+USE_REAL_LLM = False   # passer à True quand l'API est prête
 MAX_RETRIES = 3
 RETRY_DELAY = 3
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------
@@ -44,16 +42,14 @@ logging.basicConfig(level=logging.INFO)
 def build_prompt(vuln):
     """
     Construit le prompt envoyé au LLM.
+    Utilise uniquement les champs disponibles dans la base.
     """
-
     prompt = f"""
 Tu es un analyste en cybersécurité défensive.
-
 Analyse la vulnérabilité suivante et produis une synthèse
 claire et utile pour une équipe sécurité.
 
 Informations disponibles :
-
 CVE ID: {vuln["cve_id"]}
 Date publication: {vuln["published_date"]}
 Score CVSS: {vuln["cvss_score"]}
@@ -74,15 +70,13 @@ Instructions :
 - Analyse uniquement défensive
 
 Produis une sortie STRICTEMENT JSON au format :
-
 {{
-"summary": "...",
-"impact": "...",
-"mitigation": "...",
-"priority": "Haute | Moyenne | Basse"
+  "summary": "...",
+  "impact": "...",
+  "mitigation": "...",
+  "priority": "Haute | Moyenne | Basse"
 }}
 """
-
     return prompt
 
 
@@ -92,32 +86,24 @@ Produis une sortie STRICTEMENT JSON au format :
 
 def call_llm(prompt, vuln):
     """
-    Appelle le LLM ou le simulateur.
+    Appelle le LLM ou le simulateur selon la configuration.
     """
-
     if not USE_REAL_LLM:
-        # mode simulation
         return generate_fake_llm_analysis(vuln)
 
-    # exemple avec OpenAI
     try:
         from openai import OpenAI
-
         client = OpenAI()
-
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Tu es un expert en cybersécurité défensive."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
-            temperature=0.2
+            temperature=0.2,
         )
-
         text = response.choices[0].message.content
-
         return json.loads(text)
-
     except Exception as e:
         raise RuntimeError(f"Erreur appel LLM: {e}")
 
@@ -128,11 +114,11 @@ def call_llm(prompt, vuln):
 
 def parse_llm_output(output):
     """
-    Valide la sortie du LLM.
+    Valide et extrait les champs de la sortie LLM.
+    Retourne (summary, impact, mitigation).
     """
-
     if not isinstance(output, dict):
-        raise ValueError("Sortie LLM invalide")
+        raise ValueError("Sortie LLM invalide : dict attendu")
 
     summary = output.get("summary", "non précisé")
     impact = output.get("impact", "non précisé")
@@ -147,58 +133,49 @@ def parse_llm_output(output):
 
 def analyze_vulnerabilities(limit=10):
     """
-    Analyse un batch de vulnérabilités.
+    Analyse un batch de vulnérabilités non encore traitées.
 
     Étapes :
-    1. récupérer vulnérabilités non analysées
-    2. construire prompt
-    3. appeler LLM
-    4. parser sortie
-    5. sauvegarder analyse
+    1. Récupérer les vulnérabilités où llm_analyzed = 0
+    2. Construire le prompt pour chacune
+    3. Appeler le LLM (ou simulateur)
+    4. Parser la sortie
+    5. Sauvegarder via save_llm_analysis()
     """
-
     vulnerabilities = get_unanalyzed_vulnerabilities(limit)
 
     if not vulnerabilities:
-        logging.info("Aucune vulnérabilité à analyser.")
+        logger.info("Aucune vulnérabilité à analyser.")
         return
 
-    logging.info(f"{len(vulnerabilities)} vulnérabilités à analyser")
+    logger.info(f"{len(vulnerabilities)} vulnérabilité(s) à analyser")
 
     for vuln in vulnerabilities:
-
         cve_id = vuln["cve_id"]
-
-        logging.info(f"Analyse de {cve_id}")
+        logger.info(f"Analyse de {cve_id}...")
 
         prompt = build_prompt(vuln)
 
         for attempt in range(MAX_RETRIES):
-
             try:
-
                 result = call_llm(prompt, vuln)
-
                 summary, impact, mitigation = parse_llm_output(result)
 
                 save_llm_analysis(
                     cve_id=cve_id,
                     summary=summary,
                     impact=impact,
-                    mitigation=mitigation
+                    mitigation=mitigation,
                 )
 
-                logging.info(f"{cve_id} analysé avec succès")
-
+                logger.info(f"  ✓ {cve_id} analysé avec succès")
                 break
 
             except Exception as e:
-
-                logging.warning(
-                    f"Erreur analyse {cve_id} (tentative {attempt+1}) : {e}"
+                logger.warning(
+                    f"  ⚠ Erreur {cve_id} (tentative {attempt + 1}/{MAX_RETRIES}) : {e}"
                 )
-
                 if attempt + 1 == MAX_RETRIES:
-                    logging.error(f"Echec définitif pour {cve_id}")
+                    logger.error(f"  ✗ Échec définitif pour {cve_id}")
                 else:
                     time.sleep(RETRY_DELAY)
