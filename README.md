@@ -1,5 +1,3 @@
-Voici une version épurée et professionnelle de ton **README.md**, optimisée pour ton groupe. Elle se concentre sur l'essentiel : l'installation rapide, les fonctionnalités clés et le respect des règles d'intégration.
-
 ```markdown
 # 🛡️ Projet Vigilant Guardian
 
