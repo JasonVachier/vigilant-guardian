@@ -1,11 +1,11 @@
-```markdown
+markdown
 # 🛡️ Projet Vigilant Guardian
 
 ## 🚀 Lancement rapide
 
 1. **Initialiser la base de données (Démo)**
    [cite_start]Génère 25 CVE réalistes et 23 analyses IA pour la démonstration[cite: 13, 15].
-   ```powershell
+```powershell
    python scripts/seed_data.py
 
 ```
@@ -18,7 +18,6 @@ Lance le serveur Flask.
 python app.py
 
 ```
-
 
 3. **Accéder à l'interface**
 Ouvrez votre navigateur à l'adresse suivante :
