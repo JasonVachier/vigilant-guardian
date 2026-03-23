@@ -27,7 +27,7 @@ from services.llm_simulator import generate_fake_llm_analysis
 # Configuration
 # ---------------------------------------------------
 
-USE_REAL_LLM = False   # passer à True quand l'API est prête
+USE_REAL_LLM = True   # passer à True quand l'API est prête
 MAX_RETRIES = 3
 RETRY_DELAY = 3
 
@@ -86,43 +86,68 @@ Produis une sortie STRICTEMENT JSON au format :
 
 def call_llm(prompt, vuln):
     """
-    Appelle le LLM ou le simulateur selon la configuration.
+    Appel du LLM (Mistral nouvelle API)
     """
+
     if not USE_REAL_LLM:
         return generate_fake_llm_analysis(vuln)
 
     try:
-        from openai import OpenAI
-        client = OpenAI()
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
+        import os
+        from mistralai.client import Mistral
+
+        api_key = os.environ.get("MISTRAL_API_KEY")
+        if not api_key:
+            raise RuntimeError("MISTRAL_API_KEY non définie")
+
+        client = Mistral(api_key=api_key)
+        response = client.chat.complete(
+            model="mistral-small-latest",
             messages=[
-                {"role": "system", "content": "Tu es un expert en cybersécurité défensive."},
-                {"role": "user", "content": prompt},
+                {
+                    "role": "system",
+                    "content": "Tu es un expert en cybersécurité défensive."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ],
             temperature=0.2,
         )
         text = response.choices[0].message.content
-        return json.loads(text)
+        return text
+
     except Exception as e:
         raise RuntimeError(f"Erreur appel LLM: {e}")
-
+    
 
 # ---------------------------------------------------
 # Parsing sécurisé
 # ---------------------------------------------------
+def extract_json(text):
+    import re
+    import json
+
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        raise ValueError("JSON non trouvé")
+    
+    return json.loads(match.group())
 
 def parse_llm_output(output):
     """
     Valide et extrait les champs de la sortie LLM.
     Retourne (summary, impact, mitigation).
     """
-    if not isinstance(output, dict):
-        raise ValueError("Sortie LLM invalide : dict attendu")
+    if isinstance(output, dict):
+        data = output
+    else:
+        data = extract_json(output)
 
-    summary = output.get("summary", "non précisé")
-    impact = output.get("impact", "non précisé")
-    mitigation = output.get("mitigation", "non précisé")
+    summary = data.get("summary", "non précisé")
+    impact = data.get("impact", "non précisé")
+    mitigation = data.get("mitigation", "non précisé")
 
     return summary, impact, mitigation
 

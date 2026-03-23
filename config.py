@@ -62,4 +62,4 @@ DEFAULT_RESULTS_PER_PAGE = 20
 SECRET_KEY = "vigilant-guardian-dev-key-2024"
 DEBUG = True
 HOST = "0.0.0.0"
-PORT = 5000
+PORT = 5100
