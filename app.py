@@ -17,6 +17,9 @@ Règles respectées :
 from flask import Flask, render_template, request, jsonify, abort
 import json
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from services.repository import (
     get_recent_vulnerabilities,
     get_kev_vulnerabilities,
@@ -24,11 +27,16 @@ from services.repository import (
     find_by_cve_id,
     search_vulnerabilities,
     get_statistics,
+    init_db,
 )
 from config import SECRET_KEY, DEBUG, HOST, PORT
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
+
+# Initialisation de la base au démarrage (couvre flask run et gunicorn)
+with app.app_context():
+    init_db()
 
 
 # ── Helpers Jinja2 ─────────────────────────────────────────────
@@ -177,14 +185,24 @@ def not_found(e):
 def run_analysis():
     """
     Déclenche l'analyse LLM des vulnérabilités non encore traitées.
-    Route ajoutée par la Personne 2, intégrée dans l'app par la Personne 3.
+    Retourne les statistiques d'exécution (total, analyzed, failed).
     """
     try:
+        limit = int(request.form.get("limit", 10))
+        limit = max(1, min(limit, 50))  # borne entre 1 et 50
+    except (ValueError, TypeError):
+        limit = 10
+
+    try:
         from services.analyzer import analyze_vulnerabilities
-        analyze_vulnerabilities(limit=10)
+        stats = analyze_vulnerabilities(limit=limit)
         return jsonify({
             "status": "success",
-            "message": "Analyse des vulnérabilités lancée avec succès",
+            "message": (
+                f"{stats['analyzed']} vulnérabilité(s) analysée(s), "
+                f"{stats['failed']} échec(s) sur {stats['total']} traitée(s)."
+            ),
+            "stats": stats,
         })
     except Exception as e:
         return jsonify({
@@ -196,6 +214,4 @@ def run_analysis():
 # ── Point d'entrée ─────────────────────────────────────────────
 
 if __name__ == "__main__":
-    from services.repository import init_db
-    init_db()
     app.run(debug=DEBUG, host=HOST, port=PORT)

@@ -164,11 +164,61 @@
     </div>
 </div>
 
-<div class="text-muted mt-3">
-    <small>
+<div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2">
+    <small class="text-muted">
         <i class="bi bi-info-circle"></i>
         {{ vulnerabilities|length }} vulnérabilité(s) affichée(s)
         — Données issues de NVD et CISA KEV
     </small>
+
+    <!-- Déclencheur analyse IA -->
+    <div class="d-flex align-items-center gap-2">
+        <select id="analyzeLimit" class="form-select form-select-sm bg-dark text-light border-secondary" style="width:auto">
+            <option value="5">5 vulnérabilités</option>
+            <option value="10" selected>10 vulnérabilités</option>
+            <option value="20">20 vulnérabilités</option>
+            <option value="50">50 vulnérabilités</option>
+        </select>
+        <button id="analyzeBtn" class="btn btn-sm btn-outline-info" onclick="triggerAnalysis()">
+            <i class="bi bi-robot me-1"></i> Lancer l'analyse IA
+        </button>
+        <span id="analyzeStatus" class="text-muted small"></span>
+    </div>
 </div>
+
+<script>
+function triggerAnalysis() {
+    const btn = document.getElementById('analyzeBtn');
+    const status = document.getElementById('analyzeStatus');
+    const limit = document.getElementById('analyzeLimit').value;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Analyse en cours…';
+    status.textContent = '';
+
+    const formData = new FormData();
+    formData.append('limit', limit);
+
+    fetch('/admin/analyze', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                status.className = 'text-success small';
+                status.textContent = '✓ ' + data.message;
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                status.className = 'text-danger small';
+                status.textContent = '✗ ' + data.message;
+            }
+        })
+        .catch(() => {
+            status.className = 'text-danger small';
+            status.textContent = '✗ Erreur réseau';
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-robot me-1"></i> Lancer l\'analyse IA';
+        });
+}
+</script>
 {% endblock %}
